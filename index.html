@@ -166,6 +166,86 @@
   .alert-item{cursor:pointer;}
   .alert-item.read .alert-dot{background:var(--line-strong) !important;}
   .alert-item.read .alert-title{color:var(--text-2);}
+
+  /* ── Free Tier ── */
+  .plan-badge{
+    margin:0 6px; padding:8px 10px;
+    background:rgba(31,111,92,.15); border:1px solid rgba(31,111,92,.3);
+    border-radius:8px; font-size:11.5px; color:#7FC4B0;
+  }
+  .plan-badge strong{display:block; color:#A8DACE; font-size:12px; margin-bottom:2px;}
+  .btn-upgrade{
+    display:block; margin-top:8px; width:100%;
+    background:var(--teal); color:#fff; border:none; border-radius:6px;
+    padding:7px 0; font-size:12px; font-weight:600; cursor:pointer;
+    font-family:'Inter',sans-serif; letter-spacing:.02em;
+    transition:background .15s;
+  }
+  .btn-upgrade:hover{background:var(--teal-dark);}
+
+  .free-limit-banner{
+    background:var(--amber-100); border:1px solid #E8C080;
+    border-radius:8px; padding:14px 16px; margin:12px 0;
+    display:flex; align-items:center; gap:12px;
+  }
+  .free-limit-banner .flb-icon{font-size:20px; flex-shrink:0;}
+  .free-limit-banner .flb-text{flex:1; font-size:13px; color:#7A4A10; line-height:1.5;}
+  .free-limit-banner .flb-text strong{color:#5A3008;}
+  .free-limit-banner .flb-btn{
+    background:var(--amber); color:#fff; border:none; border-radius:6px;
+    padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer;
+    font-family:'Inter',sans-serif; white-space:nowrap; flex-shrink:0;
+  }
+
+  .lock-overlay{
+    position:absolute; inset:0; background:rgba(243,244,239,.88);
+    backdrop-filter:blur(3px); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:12px;
+    border-radius:var(--radius); z-index:10;
+  }
+  .lock-overlay .lo-icon{font-size:32px;}
+  .lock-overlay .lo-title{font-family:'Space Grotesk'; font-size:17px; font-weight:600; color:var(--text);}
+  .lock-overlay .lo-sub{font-size:13px; color:var(--text-2); text-align:center; max-width:280px; line-height:1.5;}
+  .lock-overlay .lo-btn{
+    background:var(--teal); color:#fff; border:none; border-radius:8px;
+    padding:9px 22px; font-size:13px; font-weight:600; cursor:pointer;
+    font-family:'Inter',sans-serif; margin-top:4px;
+  }
+  .lock-overlay .lo-btn:hover{background:var(--teal-dark);}
+  .lockable{position:relative;}
+
+  /* Upgrade modal */
+  .upgrade-overlay{
+    position:fixed; inset:0; background:rgba(14,27,36,.6);
+    display:none; align-items:center; justify-content:center; z-index:1000;
+  }
+  .upgrade-overlay.open{display:flex;}
+  .upgrade-modal{
+    background:var(--card); border-radius:14px; padding:36px 32px;
+    width:min(560px, 92vw); position:relative; box-shadow:0 24px 60px rgba(0,0,0,.25);
+  }
+  .upgrade-modal .um-close{
+    position:absolute; top:16px; right:18px; font-size:18px; cursor:pointer;
+    color:var(--text-2); background:none; border:none; line-height:1;
+  }
+  .um-eyebrow{font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--teal); margin-bottom:8px;}
+  .um-title{font-family:'Space Grotesk'; font-size:22px; font-weight:600; margin-bottom:6px;}
+  .um-sub{font-size:13px; color:var(--text-2); margin-bottom:24px; line-height:1.6;}
+  .um-plans{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px;}
+  .um-plan{border:1px solid var(--line); border-radius:10px; padding:16px 14px;}
+  .um-plan.featured{border-color:var(--teal); background:var(--teal-100);}
+  .um-plan-name{font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--text-2); margin-bottom:6px;}
+  .um-plan.featured .um-plan-name{color:var(--teal-dark);}
+  .um-plan-price{font-family:'Space Grotesk'; font-size:22px; font-weight:700; color:var(--text); margin-bottom:2px;}
+  .um-plan-period{font-size:11px; color:var(--text-2); margin-bottom:10px;}
+  .um-plan-features{list-style:none; font-size:12px; color:var(--text-2);}
+  .um-plan-features li{padding:3px 0; border-top:1px solid var(--line); display:flex; gap:6px;}
+  .um-plan-features li::before{content:'—'; color:var(--teal); font-size:10px;}
+  .um-cta{display:block; width:100%; background:var(--teal); color:#fff; border:none; border-radius:8px;
+    padding:11px; font-size:14px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; letter-spacing:.01em;}
+  .um-cta:hover{background:var(--teal-dark);}
+  .um-contact{text-align:center; font-size:12px; color:var(--text-2); margin-top:12px;}
+  .um-contact a{color:var(--teal); text-decoration:none;}
 </style>
 </head>
 <body>
@@ -186,6 +266,11 @@
       <div class="nav-item" data-screen="watchlist"><span class="nav-icon">★</span> Watchlist</div>
       <div class="nav-item" data-screen="alerts"><span class="nav-icon">◍</span> Alerts</div>
     </nav>
+    <div class="plan-badge" id="planBadge">
+      <strong>Free Plan</strong>
+      30 trials · CT.GOV only
+      <button class="btn-upgrade" onclick="showUpgrade('sidebar')">Upgrade to Pro →</button>
+    </div>
     <div class="sidebar-footer" id="sidebarFooter">
       Data source: ClinicalTrials.gov<br>via local export
     </div>
@@ -498,6 +583,45 @@
 </div>
 
 <script>
+// ── Free tier flag — set to false to unlock all features ──
+const FREE_TIER = true;
+const FREE_LIMIT = 30;
+const LOCKED_SCREENS = ['indication','competitor','alerts']; // locked in free plan
+
+function showUpgrade(source){
+  document.getElementById('upgradeOverlay').classList.add('open');
+}
+function hideUpgrade(e){
+  if(e && e.target !== document.getElementById('upgradeOverlay')) return;
+  document.getElementById('upgradeOverlay').classList.remove('open');
+}
+
+function applyFreeTierUI(){
+  if(!FREE_TIER){ document.getElementById('planBadge').style.display='none'; return; }
+  // Disable export
+  const btn = document.getElementById('exportBtn');
+  if(btn){
+    btn.style.opacity='0.45'; btn.style.cursor='not-allowed';
+    btn.onclick = ()=>showUpgrade('export');
+    btn.title = 'Export available on Starter plan ($299/mo)';
+  }
+  // Add lock overlays to locked sections
+  LOCKED_SCREENS.forEach(screenId=>{
+    const el = document.getElementById(screenId);
+    if(!el || el.querySelector('.lock-overlay')) return;
+    el.style.position='relative';
+    const labels = {indication:'Indication Landscape',competitor:'Competitor Analytics',alerts:'Alerts & Monitoring'};
+    const descs  = {indication:'See all therapeutic areas, indication crowding scores, and phase distribution across 8 registries.',competitor:'Track competitor pipelines, sponsor activity, and market positioning in real time.',alerts:'Get notified when trials you track change status, phase, or enrollment.'};
+    const div = document.createElement('div');
+    div.className='lock-overlay';
+    div.innerHTML=`<div class="lo-icon">🔒</div>
+      <div class="lo-title">${labels[screenId]}</div>
+      <div class="lo-sub">${descs[screenId]}</div>
+      <button class="lo-btn" onclick="showUpgrade('${screenId}')">Upgrade to unlock →</button>`;
+    el.appendChild(div);
+  });
+}
+
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -658,41 +782,59 @@ function applyExplorerFilters(){
     return true;
   });
 
-  // Store for export
-  _lastFiltered = filtered;
+  // Free tier: cap visible results
+  const displaySet = FREE_TIER ? filtered.slice(0, FREE_LIMIT) : filtered;
+  _lastFiltered = displaySet;
+
   const exportBtn = document.getElementById('exportBtn');
-  if (exportBtn) exportBtn.textContent = `⬇ Export Excel (${filtered.length.toLocaleString()})`;
+  if (exportBtn && !FREE_TIER) exportBtn.textContent = `⬇ Export Excel (${filtered.length.toLocaleString()})`;
 
   const PAGE_SIZE = 100;
-  document.getElementById('explorerRows').innerHTML = filtered.length
-    ? filtered.slice(0, PAGE_SIZE).map(explorerRowHtml).join('')
+  const tbody = document.getElementById('explorerRows');
+  tbody.innerHTML = displaySet.length
+    ? displaySet.slice(0, PAGE_SIZE).map(explorerRowHtml).join('')
     : '<tr><td colspan="6" style="text-align:center; color:var(--text-2); padding:24px;">No trials match these filters</td></tr>';
+
+  // Free tier upgrade banner
+  const existingBanner = document.getElementById('freeLimitBanner');
+  if(existingBanner) existingBanner.remove();
+  if(FREE_TIER && filtered.length > FREE_LIMIT){
+    const banner = document.createElement('div');
+    banner.id = 'freeLimitBanner';
+    banner.className = 'free-limit-banner';
+    banner.innerHTML = `<div class="flb-icon">🔒</div>
+      <div class="flb-text"><strong>${filtered.length.toLocaleString()} trials match your search</strong> — showing 30 on the Free plan. Upgrade to see all results, export data, and access 8 registries.</div>
+      <button class="flb-btn" onclick="showUpgrade('explorer')">Upgrade →</button>`;
+    tbody.closest('.panel').after(banner);
+  }
+
   const moreBtn = document.getElementById('explorerMoreBtn');
-  if (filtered.length > PAGE_SIZE) {
+  if (!FREE_TIER && displaySet.length > PAGE_SIZE) {
     let _offset = PAGE_SIZE;
     const _updateMoreBtn = () => {
-      const remaining = filtered.length - _offset;
+      const remaining = displaySet.length - _offset;
       if (remaining > 0) {
         moreBtn.style.display = 'block';
         moreBtn.textContent = `Show more (${remaining} remaining)`;
         moreBtn.onclick = () => {
-          document.getElementById('explorerRows').innerHTML +=
-            filtered.slice(_offset, _offset + PAGE_SIZE).map(explorerRowHtml).join('');
+          tbody.innerHTML += displaySet.slice(_offset, _offset + PAGE_SIZE).map(explorerRowHtml).join('');
           _offset += PAGE_SIZE;
           _updateMoreBtn();
         };
-      } else {
-        moreBtn.style.display = 'none';
-      }
+      } else { moreBtn.style.display = 'none'; }
     };
     _updateMoreBtn();
   } else {
     moreBtn.style.display = 'none';
   }
+
   const regSources = new Set(dataset.map(t => detectRegistry(t.nct_id).label));
   const sourceLabel = regSources.size > 1 ? `${regSources.size} registries` : [...regSources][0] || 'registry';
+  const shownCount = FREE_TIER ? Math.min(filtered.length, FREE_LIMIT) : filtered.length;
   document.getElementById('explorerSubtitle').textContent =
-    `${filtered.length.toLocaleString()} of ${dataset.length.toLocaleString()} trials across ${sourceLabel}`;
+    FREE_TIER
+      ? `Showing ${shownCount} of ${filtered.length.toLocaleString()} trials — Free plan (30 trial limit)`
+      : `${filtered.length.toLocaleString()} of ${dataset.length.toLocaleString()} trials across ${sourceLabel}`;
 }
 
 function exportFilteredTrials(){
@@ -855,6 +997,7 @@ const competitorChartInstance = new Chart(document.getElementById('competitorCha
 document.getElementById('competitorSponsor').addEventListener('change', renderCompetitorView);
 
 renderRealData();
+applyFreeTierUI();
 
 function renderCompetitorView(){
   const data = getDataset();
@@ -1249,5 +1392,52 @@ function applyMetrics(data){
 }
 
 </script>
+<!-- Upgrade Modal -->
+<div class="upgrade-overlay" id="upgradeOverlay" onclick="hideUpgrade(event)">
+  <div class="upgrade-modal">
+    <button class="um-close" onclick="hideUpgrade()">✕</button>
+    <div class="um-eyebrow">TrialScope Plans</div>
+    <div class="um-title">Unlock the full platform</div>
+    <div class="um-sub">You're on the Free plan — 30 trials, CT.GOV only. Upgrade to access all 8 registries, unlimited trials, daily alerts, and competitor analytics.</div>
+    <div class="um-plans">
+      <div class="um-plan">
+        <div class="um-plan-name">Starter</div>
+        <div class="um-plan-price">$299</div>
+        <div class="um-plan-period">per month</div>
+        <ul class="um-plan-features">
+          <li>1 indication</li>
+          <li>CT.GOV + EUCTR</li>
+          <li>Excel export</li>
+          <li>Weekly alerts</li>
+        </ul>
+      </div>
+      <div class="um-plan featured">
+        <div class="um-plan-name">Pro</div>
+        <div class="um-plan-price">$799</div>
+        <div class="um-plan-period">per month</div>
+        <ul class="um-plan-features">
+          <li>5 indications</li>
+          <li>All 8 registries</li>
+          <li>Daily alerts</li>
+          <li>Competitor analytics</li>
+          <li>PDF reports</li>
+        </ul>
+      </div>
+      <div class="um-plan">
+        <div class="um-plan-name">Enterprise</div>
+        <div class="um-plan-price">Custom</div>
+        <div class="um-plan-period">from $2,500/mo</div>
+        <ul class="um-plan-features">
+          <li>Unlimited</li>
+          <li>API access</li>
+          <li>White-label</li>
+          <li>Dedicated CSM</li>
+        </ul>
+      </div>
+    </div>
+    <button class="um-cta" onclick="window.location.href='mailto:ayyappamoganti@gmail.com?subject=TrialScope Pro Upgrade&body=Hi, I would like to upgrade my TrialScope plan.'">Get started — email us to upgrade</button>
+    <div class="um-contact">Questions? <a href="mailto:ayyappamoganti@gmail.com">ayyappamoganti@gmail.com</a></div>
+  </div>
+</div>
 </body>
 </html>
