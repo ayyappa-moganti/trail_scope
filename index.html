@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Trialscope — Registry Intelligence Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<!-- Loads real data exported by trialscope_pipeline.py if trials_data.js sits next to this file.
+     If not found the dashboard falls back to mock rows below. -->
+<script src="trials_data.js" onerror="console.log('trials_data.js not found -- showing mock data')"></script>
+<style>
+  :root{
+    --ink:#0E1B24; --ink-2:#16283A; --paper:#F3F4EF; --card:#FFFFFF;
+    --teal:#1F6F5C; --teal-dark:#154A3D; --teal-100:#E4EFEA;
+    --amber:#C97A2B; --amber-100:#F6E8D8;
+    --red:#B33A3A; --red-100:#F5E1DF;
+    --blue:#2E5C8A; --blue-100:#E3EAF1;
+    --slate:#5B6570; --line:#E1E3DC; --line-strong:#CBCEC6;
+    --text:#16232C; --text-2:#5B6570;
+    --radius:10px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Inter',sans-serif; background:var(--paper); color:var(--text); font-size:14px;}
+  .app{display:grid; grid-template-columns:220px 1fr; min-height:100vh;}
+
+  /* Sidebar */
+  .sidebar{background:var(--ink); color:#D9E2E6; padding:24px 16px; display:flex; flex-direction:column; gap:28px;}
+  .brand{display:flex; align-items:center; gap:10px; padding:0 6px;}
+  .brand-mark{width:26px; height:26px; border-radius:6px; background:var(--teal); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono'; font-size:12px; font-weight:500; color:#fff;}
+  .brand-name{font-family:'Space Grotesk'; font-weight:600; font-size:16px; color:#fff;}
+  .brand-sub{font-size:10px; color:#7C8A93; letter-spacing:.04em; text-transform:uppercase;}
+  nav{display:flex; flex-direction:column; gap:2px;}
+  .nav-item{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; cursor:pointer; color:#AEBAC1; font-size:13.5px; font-weight:500; transition:background .15s;}
+  .nav-item:hover{background:var(--ink-2); color:#fff;}
+  .nav-item.active{background:var(--teal); color:#fff;}
+  .nav-icon{width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; font-size:14px;}
+  .sidebar-footer{margin-top:auto; padding:12px; border-top:1px solid #24343F; font-size:11px; color:#7C8A93; line-height:1.5;}
+
+  /* Main */
+  main{padding:28px 36px; overflow-x:hidden;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;}
+  .page-title{font-family:'Space Grotesk'; font-size:22px; font-weight:600;}
+  .page-sub{color:var(--text-2); font-size:13px; margin-top:2px;}
+  .search{display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 14px; width:340px;}
+  .search input{border:none; outline:none; font-size:13px; width:100%; background:transparent; font-family:'Inter';}
+  .search-icon{color:var(--text-2); font-size:13px;}
+
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  /* KPI cards */
+  .kpi-row{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;}
+  .kpi-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px;}
+  .kpi-label{font-size:12px; color:var(--text-2); font-weight:500;}
+  .kpi-value{font-family:'Space Grotesk'; font-size:26px; font-weight:600; margin-top:6px;}
+  .kpi-delta{font-size:11.5px; margin-top:6px; font-weight:500;}
+  .kpi-delta.up{color:var(--teal-dark);}
+  .kpi-delta.warn{color:var(--amber);}
+
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px 22px; margin-bottom:20px;}
+  .panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+  .panel-title{font-family:'Space Grotesk'; font-size:15px; font-weight:600;}
+  .link-btn{font-size:12.5px; color:var(--teal-dark); font-weight:500; cursor:pointer;}
+
+  .grid-2{display:grid; grid-template-columns:1.3fr 1fr; gap:20px;}
+
+  /* Table */
+  table{width:100%; border-collapse:collapse;}
+  th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-2); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--line);}
+  td{padding:11px 10px; border-bottom:1px solid var(--line); font-size:13px; vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .trial-id{font-family:'IBM Plex Mono'; font-size:12px; color:var(--text-2);}
+  .reg-badges{display:flex; gap:4px; margin-top:4px;}
+  .reg-badge{font-family:'IBM Plex Mono'; font-size:9.5px; padding:1px 5px; border-radius:4px; font-weight:500; letter-spacing:.02em;}
+  .reg-ct{background:var(--teal-100); color:var(--teal-dark);}
+  .reg-ictrp{background:var(--blue-100); color:var(--blue);}
+  .reg-euctr{background:#E8F4E8; color:#2D6A2D;}
+  .reg-ctis{background:#E6F0FA; color:#1A5296;}
+  .reg-ctri{background:var(--amber-100); color:var(--amber);}
+  .reg-chictr{background:#EFE6F1; color:#6B3F7A;}
+
+  .status-pill{font-size:11px; font-weight:500; padding:3px 9px; border-radius:20px; display:inline-block;}
+  .status-recruiting{background:var(--teal-100); color:var(--teal-dark);}
+  .status-active{background:var(--blue-100); color:var(--blue);}
+  .status-completed{background:#EDEFEA; color:var(--slate);}
+  .status-terminated{background:var(--red-100); color:var(--red);}
+
+  /* Filters */
+  .filters{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px;}
+  .filter-chip{display:flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:12.5px; color:var(--text-2); cursor:pointer;}
+  .filter-chip.filled{background:var(--teal-100); border-color:var(--teal-100); color:var(--teal-dark); font-weight:500;}
+  .filter-chip select{border:none; background:transparent; font-size:12.5px; font-family:'Inter'; color:inherit; outline:none;}
+
+  .sponsor-select-group{display:flex; align-items:center; gap:10px;}
+  .sponsor-select-label{font-size:12.5px; color:var(--text-2); font-weight:500;}
+
+  /* Alerts */
+  .alert-item{display:flex; gap:14px; padding:14px 0; border-bottom:1px solid var(--line);}
+  .alert-item:last-child{border-bottom:none;}
+  .alert-dot{width:8px; height:8px; border-radius:50%; margin-top:6px; flex-shrink:0;}
+  .alert-dot.new{background:var(--teal);}
+  .alert-dot.status{background:var(--amber);}
+  .alert-title{font-size:13.5px; font-weight:500;}
+  .alert-meta{font-size:11.5px; color:var(--text-2); margin-top:2px;}
+  .saved-search{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); font-size:13px;}
+  .saved-search:last-child{border-bottom:none;}
+  .toggle{width:32px; height:18px; background:var(--teal); border-radius:9px; position:relative; cursor:pointer;}
+  .toggle::after{content:''; position:absolute; width:14px; height:14px; background:#fff; border-radius:50%; top:2px; right:2px;}
+  .toggle.off{background:var(--line-strong);}
+  .toggle.off::after{left:2px; right:auto;}
+
+  .chart-box{height:220px;}
+  .empty-note{font-size:12px; color:var(--text-2); margin-top:10px;}
+
+  .data-banner{display:flex; align-items:center; gap:10px; background:var(--amber-100); color:var(--amber); border:1px solid var(--amber); border-radius:8px; padding:10px 14px; font-size:12.5px; font-weight:500; margin-bottom:18px;}
+
+  /* Second KPI row (metrics) */
+  .kpi-row-2{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;}
+  .kpi-card-sm{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px 18px; display:flex; align-items:center; gap:14px;}
+  .kpi-icon{font-size:22px; line-height:1;}
+  .kpi-sm-label{font-size:11.5px; color:var(--text-2); font-weight:500;}
+  .kpi-sm-value{font-family:'Space Grotesk'; font-size:18px; font-weight:600; margin-top:2px;}
+  .kpi-sm-value.warn{color:var(--red);}
+  .kpi-sm-value.ok{color:var(--teal-dark);}
+
+  /* Risk badge */
+  .risk-badge{display:inline-block; font-size:10px; font-weight:600; background:var(--red-100); color:var(--red); border-radius:4px; padding:1px 5px; margin-left:6px; vertical-align:middle;}
+
+  /* Indication table */
+  .phase-pills{display:flex; gap:3px; flex-wrap:wrap;}
+  .phase-mini{font-size:10px; font-weight:600; padding:1px 6px; border-radius:4px; background:var(--blue-100); color:var(--blue);}
+  .indication-row{cursor:pointer; transition:background .1s;}
+  .indication-row:hover td{background:var(--teal-100);}
+
+  /* Trial detail panel */
+  .detail-overlay{display:none; position:fixed; inset:0; background:rgba(14,27,36,.35); z-index:100;}
+  .detail-overlay.open{display:block;}
+  .detail-panel{position:fixed; top:0; right:0; bottom:0; width:480px; background:var(--card); box-shadow:-4px 0 24px rgba(0,0,0,.15); overflow-y:auto; z-index:101; transform:translateX(100%); transition:transform .22s ease;}
+  .detail-panel.open{transform:translateX(0);}
+  .detail-header{padding:20px 22px 0; border-bottom:1px solid var(--line); display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding-bottom:16px;}
+  .detail-nct{font-family:'IBM Plex Mono'; font-size:12px; color:var(--text-2);}
+  .detail-title{font-family:'Space Grotesk'; font-size:15px; font-weight:600; margin-top:4px; line-height:1.35;}
+  .detail-close{background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-2); flex-shrink:0; padding:0 0 0 8px;}
+  .detail-body{padding:18px 22px; display:flex; flex-direction:column; gap:16px;}
+  .detail-section{display:flex; flex-direction:column; gap:6px;}
+  .detail-section-title{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-2); font-weight:600;}
+  .detail-row{display:grid; grid-template-columns:120px 1fr; gap:6px; font-size:13px;}
+  .detail-row dt{color:var(--text-2); font-weight:500;}
+  .detail-row dd{color:var(--text);}
+  .detail-long{font-size:12.5px; color:var(--text); line-height:1.55; max-height:200px; overflow-y:auto; background:var(--paper); border-radius:6px; padding:10px 12px;}
+  .detail-long.collapsed{max-height:80px;}
+  .detail-expand{font-size:12px; color:var(--teal-dark); cursor:pointer; margin-top:4px; font-weight:500;}
+  .detail-actions{display:flex; gap:10px; margin-top:4px;}
+  .btn-primary{background:var(--teal); color:#fff; border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:500; cursor:pointer; font-family:'Inter';}
+  .btn-primary:hover{background:var(--teal-dark);}
+  .btn-secondary{background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:9px 16px; font-size:13px; font-weight:500; cursor:pointer; font-family:'Inter';}
+  .btn-secondary:hover{background:var(--paper);}
+  .btn-danger{background:var(--red-100); color:var(--red); border:1px solid var(--red-100); border-radius:8px; padding:9px 16px; font-size:13px; font-weight:500; cursor:pointer;}
+
+  /* Watchlist dot on trial IDs */
+  .trial-id-wrap{display:flex; align-items:center; gap:5px;}
+  .watch-dot{width:7px; height:7px; border-radius:50%; background:var(--amber); flex-shrink:0;}
+
+  /* Alert read state */
+  .alert-item{cursor:pointer;}
+  .alert-item.read .alert-dot{background:var(--line-strong) !important;}
+  .alert-item.read .alert-title{color:var(--text-2);}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">TS</div>
+      <div>
+        <div class="brand-name">Trialscope</div>
+        <div class="brand-sub">Registry intelligence</div>
+      </div>
+    </div>
+    <nav>
+      <div class="nav-item active" data-screen="overview"><span class="nav-icon">◱</span> Overview</div>
+      <div class="nav-item" data-screen="explorer"><span class="nav-icon">⌕</span> Trial explorer</div>
+      <div class="nav-item" data-screen="indication"><span class="nav-icon">⬡</span> Indications</div>
+      <div class="nav-item" data-screen="competitor"><span class="nav-icon">◫</span> Competitors</div>
+      <div class="nav-item" data-screen="watchlist"><span class="nav-icon">★</span> Watchlist</div>
+      <div class="nav-item" data-screen="alerts"><span class="nav-icon">◍</span> Alerts</div>
+    </nav>
+    <div class="sidebar-footer" id="sidebarFooter">
+      Data source: ClinicalTrials.gov<br>via local export
+    </div>
+  </aside>
+
+  <main>
+    <div class="data-banner" id="dataSourceBanner" style="display:none;">
+      <span>⚠</span>
+      <span id="dataSourceBannerText"></span>
+    </div>
+    <!-- OVERVIEW -->
+    <section class="screen active" id="overview">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Overview</div>
+          <div class="page-sub">Your tracked indications, last updated today</div>
+        </div>
+        <div class="search"><span class="search-icon">⌕</span><input placeholder="Search sponsor, trial ID, indication…"></div>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-label">Trials tracked</div><div class="kpi-value" id="kpiTracked">—</div><div class="kpi-delta up" id="kpiTrackedNote">loading…</div></div>
+        <div class="kpi-card"><div class="kpi-label">Active trials</div><div class="kpi-value" id="kpiActive">—</div><div class="kpi-delta up" id="kpiActiveNote">recruiting + active</div></div>
+        <div class="kpi-card"><div class="kpi-label">New (30 days)</div><div class="kpi-value" id="kpiNew">—</div><div class="kpi-delta up">newly registered</div></div>
+        <div class="kpi-card"><div class="kpi-label">Sponsors tracked</div><div class="kpi-value" id="kpiSponsors">—</div><div class="kpi-delta warn" id="kpiSponsorsNote">unique sponsors</div></div>
+      </div>
+
+      <div class="kpi-row-2">
+        <div class="kpi-card-sm"><div class="kpi-icon">⚠</div><div><div class="kpi-sm-label">Trials at risk</div><div class="kpi-sm-value warn" id="kpiAtRisk">—</div></div></div>
+        <div class="kpi-card-sm"><div class="kpi-icon">⏱</div><div><div class="kpi-sm-label">Avg days to start</div><div class="kpi-sm-value" id="kpiTimeToStart">—</div></div></div>
+        <div class="kpi-card-sm"><div class="kpi-icon">✓</div><div><div class="kpi-sm-label">Completion rate</div><div class="kpi-sm-value ok" id="kpiCompletionRate">—</div></div></div>
+        <div class="kpi-card-sm"><div class="kpi-icon">✎</div><div><div class="kpi-sm-label">Avg amendments/trial</div><div class="kpi-sm-value" id="kpiAmendFreq">—</div></div></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Recent registrations</div><div class="link-btn" onclick="showScreen('explorer')">View all →</div></div>
+          <table>
+            <tr><th>Trial</th><th>Sponsor</th><th>Phase</th><th>Status</th></tr>
+            <tbody id="recentRows">
+            <tr>
+              <td><span class="trial-id">NCT06214...</span><div class="reg-badges"><span class="reg-badge reg-ct">CT.GOV</span><span class="reg-badge reg-ictrp">ICTRP</span></div></td>
+              <td>Arcellis Bio</td><td>Phase 2</td><td><span class="status-pill status-recruiting">Recruiting</span></td>
+            </tr>
+            <tr>
+              <td><span class="trial-id">CTRI/2026/07...</span><div class="reg-badges"><span class="reg-badge reg-ctri">CTRI</span></div></td>
+              <td>Nova Therapeutics</td><td>Phase 1</td><td><span class="status-pill status-active">Not yet recruiting</span></td>
+            </tr>
+            <tr>
+              <td><span class="trial-id">ChiCTR2600...</span><div class="reg-badges"><span class="reg-badge reg-chictr">CHICTR</span><span class="reg-badge reg-ictrp">ICTRP</span></div></td>
+              <td>Helix Oncology</td><td>Phase 3</td><td><span class="status-pill status-recruiting">Recruiting</span></td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Trials by phase</div></div>
+          <div class="chart-box"><canvas id="phaseChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXPLORER -->
+    <section class="screen" id="explorer">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Trial explorer</div>
+          <div class="page-sub" id="explorerSubtitle">1,284 trials across 5 registries</div>
+        </div>
+        <div class="search"><span class="search-icon">⌕</span><input id="explorerSearch" placeholder="Search sponsor, trial ID, condition…"></div>
+      </div>
+
+      <div class="filters">
+        <div class="filter-chip"><select id="filterPhase">
+          <option value="">Phase: all</option>
+          <option value="PHASE1">Phase 1</option>
+          <option value="PHASE2">Phase 2</option>
+          <option value="PHASE3">Phase 3</option>
+          <option value="PHASE4">Phase 4</option>
+          <option value="EARLY_PHASE1">Early Phase 1</option>
+          <option value="NA">Not specified</option>
+        </select></div>
+        <div class="filter-chip"><select id="filterStatus">
+          <option value="">Status: all</option>
+          <option value="RECRUITING">Recruiting</option>
+          <option value="NOT_YET_RECRUITING">Not yet recruiting</option>
+          <option value="ACTIVE_NOT_RECRUITING">Active</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="TERMINATED">Terminated</option>
+          <option value="WITHDRAWN">Withdrawn</option>
+          <option value="SUSPENDED">Suspended</option>
+        </select></div>
+        <div class="filter-chip"><select id="filterCountry">
+          <option value="">Country: all</option>
+        </select></div>
+        <div class="filter-chip"><select id="filterRegistry">
+          <option value="">Registry: all</option>
+        </select></div>
+        <button id="exportBtn" onclick="exportFilteredTrials()"
+          style="margin-left:auto; display:flex; align-items:center; gap:6px;
+                 background:var(--teal-dark); color:#fff; border:none; border-radius:8px;
+                 padding:7px 16px; font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap;">
+          ⬇ Export Excel
+        </button>
+      </div>
+
+      <div class="panel">
+        <table>
+          <tr><th>Trial</th><th>Sponsor</th><th>Phase</th><th>Enrollment</th><th>Countries</th><th>Status</th></tr>
+          <tbody id="explorerRows">
+          <tr>
+            <td><span class="trial-id">NCT06214821</span><div class="reg-badges"><span class="reg-badge reg-ct">CT.GOV</span><span class="reg-badge reg-ictrp">ICTRP</span></div></td>
+            <td>Arcellis Bio</td><td>Phase 2</td><td>140 / 220</td><td>US, DE, ES</td><td><span class="status-pill status-recruiting">Recruiting</span></td>
+          </tr>
+          <tr>
+            <td><span class="trial-id">CTRI/2026/07/071234</span><div class="reg-badges"><span class="reg-badge reg-ctri">CTRI</span></div></td>
+            <td>Nova Therapeutics</td><td>Phase 1</td><td>0 / 60</td><td>IN</td><td><span class="status-pill status-active">Not yet recruiting</span></td>
+          </tr>
+          <tr>
+            <td><span class="trial-id">ChiCTR2600089213</span><div class="reg-badges"><span class="reg-badge reg-chictr">CHICTR</span><span class="reg-badge reg-ictrp">ICTRP</span></div></td>
+            <td>Helix Oncology</td><td>Phase 3</td><td>410 / 500</td><td>CN, JP</td><td><span class="status-pill status-recruiting">Recruiting</span></td>
+          </tr>
+          <tr>
+            <td><span class="trial-id">NCT05987421</span><div class="reg-badges"><span class="reg-badge reg-ct">CT.GOV</span></div></td>
+            <td>Meridian Pharma</td><td>Phase 2</td><td>96 / 96</td><td>US, CA</td><td><span class="status-pill status-completed">Completed</span></td>
+          </tr>
+          <tr>
+            <td><span class="trial-id">EUCT2026-501...</span><div class="reg-badges"><span class="reg-badge reg-blue reg-ictrp">EU CTR</span></div></td>
+            <td>Solvana Bio</td><td>Phase 2</td><td>52 / 180</td><td>DE, FR, IT</td><td><span class="status-pill status-terminated">Terminated</span></td>
+          </tr>
+          </tbody>
+        </table>
+        <button id="explorerMoreBtn" style="display:none; margin:14px auto 0; background:var(--teal-100); color:var(--teal-dark); border:1px solid var(--teal-100); border-radius:8px; padding:9px 18px; font-size:13px; font-weight:500; cursor:pointer; width:100%;"></button>
+      </div>
+    </section>
+
+    <!-- COMPETITOR -->
+    <section class="screen" id="competitor">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Competitor tracking</div>
+          <div class="page-sub">Compare trial activity across sponsors you follow</div>
+        </div>
+        <div class="sponsor-select-group">
+          <label for="competitorSponsor" class="sponsor-select-label">Sponsor:</label>
+          <div class="filter-chip"><select id="competitorSponsor"></select></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title" id="competitorChartTitle">Trials by year</div></div>
+          <div class="chart-box"><canvas id="competitorChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Trials for this sponsor</div></div>
+          <table>
+            <tr><th>Trial</th><th>Phase</th><th>Target enrollment</th><th>Status</th></tr>
+            <tbody id="competitorRows"></tbody>
+          </table>
+          <div class="empty-note">CT.gov reports a target enrollment count, not real-time enrolled-so-far progress -- so pace/velocity isn't shown until a data source with that field is connected.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ALERTS -->
+    <section class="screen" id="alerts">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Alerts</div>
+          <div class="page-sub">Saved searches and notification rules</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Recent alerts</div></div>
+          <div id="alertsList"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">Saved searches</div><div class="link-btn">+ New search</div></div>
+          <div class="saved-search"><span>Oncology · Phase 2-3 · US &amp; India</span><div class="toggle"></div></div>
+          <div class="saved-search"><span>Helix Oncology — all trials</span><div class="toggle"></div></div>
+          <div class="saved-search"><span>Rare disease · Phase 1</span><div class="toggle off"></div></div>
+        </div>
+      </div>
+    </section>
+    <!-- INDICATION LANDSCAPE -->
+    <section class="screen" id="indication">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Indication landscape</div>
+          <div class="page-sub" id="indicationSub">Conditions across all tracked trials</div>
+        </div>
+        <div class="search"><span class="search-icon">⌕</span><input id="indicationSearch" placeholder="Filter by condition…"></div>
+      </div>
+      <div class="kpi-row" style="grid-template-columns:repeat(3,1fr);">
+        <div class="kpi-card"><div class="kpi-label">Conditions tracked</div><div class="kpi-value" id="kpiCondTotal">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Active indications</div><div class="kpi-value" id="kpiCondActive">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Largest indication</div><div class="kpi-value" id="kpiCondTop" style="font-size:16px;font-weight:600;">—</div></div>
+      </div>
+      <div class="panel">
+        <table>
+          <tr>
+            <th>Condition</th>
+            <th>Total</th>
+            <th>Active</th>
+            <th>Ph 1</th><th>Ph 2</th><th>Ph 3</th>
+            <th>Top sponsors</th>
+            <th>Countries</th>
+          </tr>
+          <tbody id="indicationRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- WATCHLIST -->
+    <section class="screen" id="watchlist">
+      <div class="topbar">
+        <div>
+          <div class="page-title">Watchlist</div>
+          <div class="page-sub" id="watchlistSub">Trials you are tracking</div>
+        </div>
+      </div>
+      <div class="panel">
+        <table>
+          <tr><th>Trial</th><th>Sponsor</th><th>Phase</th><th>Status</th><th>Completion</th><th></th></tr>
+          <tbody id="watchlistRows"></tbody>
+        </table>
+        <div id="watchlistEmpty" style="display:none; text-align:center; color:var(--text-2); padding:28px; font-size:13px;">
+          No trials on watchlist yet — click a trial ID anywhere and choose "Add to watchlist".
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- TRIAL DETAIL PANEL -->
+  <div class="detail-overlay" id="detailOverlay" onclick="closeDetail()"></div>
+  <div class="detail-panel" id="detailPanel">
+    <div class="detail-header">
+      <div>
+        <div class="detail-nct" id="dpNctId"></div>
+        <div class="detail-title" id="dpTitle"></div>
+      </div>
+      <button class="detail-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="detail-body">
+      <div class="detail-actions">
+        <button class="btn-primary" id="dpWatchBtn" onclick="toggleWatchlist()"></button>
+        <a id="dpCtGovLink" href="#" target="_blank" rel="noopener"><button class="btn-secondary">View on CT.gov ↗</button></a>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Study overview</div>
+        <dl>
+          <div class="detail-row"><dt>Sponsor</dt><dd id="dpSponsor"></dd></div>
+          <div class="detail-row"><dt>Phase</dt><dd id="dpPhase"></dd></div>
+          <div class="detail-row"><dt>Status</dt><dd id="dpStatus"></dd></div>
+          <div class="detail-row"><dt>Study type</dt><dd id="dpType"></dd></div>
+          <div class="detail-row"><dt>Purpose</dt><dd id="dpPurpose"></dd></div>
+          <div class="detail-row"><dt>Intervention</dt><dd id="dpModel"></dd></div>
+        </dl>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Enrollment &amp; sites</div>
+        <dl>
+          <div class="detail-row"><dt>Target enrollment</dt><dd id="dpEnrollment"></dd></div>
+          <div class="detail-row"><dt>Site count</dt><dd id="dpSites"></dd></div>
+          <div class="detail-row"><dt>Countries</dt><dd id="dpCountries"></dd></div>
+          <div class="detail-row"><dt>Age range</dt><dd id="dpAge"></dd></div>
+          <div class="detail-row"><dt>Sex</dt><dd id="dpSex"></dd></div>
+          <div class="detail-row"><dt>Healthy volunteers</dt><dd id="dpHV"></dd></div>
+        </dl>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Key dates</div>
+        <dl>
+          <div class="detail-row"><dt>First posted</dt><dd id="dpPosted"></dd></div>
+          <div class="detail-row"><dt>Start date</dt><dd id="dpStart"></dd></div>
+          <div class="detail-row"><dt>Primary completion</dt><dd id="dpPrimaryComp"></dd></div>
+          <div class="detail-row"><dt>Completion</dt><dd id="dpCompletion"></dd></div>
+        </dl>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Brief summary</div>
+        <div class="detail-long collapsed" id="dpSummary"></div>
+        <div class="detail-expand" id="dpSummaryExpand" onclick="toggleExpand('dpSummary','dpSummaryExpand')">Show more ▾</div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Eligibility criteria</div>
+        <div class="detail-long collapsed" id="dpEligibility"></div>
+        <div class="detail-expand" id="dpEligExpand" onclick="toggleExpand('dpEligibility','dpEligExpand')">Show more ▾</div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Interventions</div>
+        <div id="dpInterventions" style="font-size:13px;"></div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Primary endpoints</div>
+        <div id="dpEndpoints" style="font-size:13px; line-height:1.55;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelector('.nav-item[data-screen="'+id+'"]').classList.add('active');
+}
+
+// Register nav handlers here — before chart/data init — so a script error below
+// never prevents navigation from working.
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click',()=>{
+    const s=item.dataset.screen;
+    showScreen(s);
+    if(s==='indication')  renderIndicationLandscape();
+    if(s==='watchlist')   renderWatchlist();
+    if(s==='explorer')    applyExplorerFilters();
+    if(s==='competitor'){
+      populateCompetitorSponsors();
+      renderCompetitorView();
+      try{ competitorChartInstance.resize(); }catch(e){}
+    }
+  });
+});
+
+const baseOpts = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{legend:{display:false}},
+  scales:{ y:{grid:{color:'#E1E3DC'}, ticks:{font:{family:'Inter', size:11}}},
+           x:{grid:{display:false}, ticks:{font:{family:'Inter', size:11}}} }
+};
+
+// Fallback so filters have something to work on even before real data is ingested
+const MOCK_DATA = [
+  {nct_id:'NCT06214821', lead_sponsor:'Arcellis Bio', phase:'PHASE2', overall_status:'RECRUITING', conditions:'Non-Small Cell Lung Cancer', enrollment_count:220, countries:'United States, Germany, Spain', last_update_posted:'2026-07-01'},
+  {nct_id:'CTRI/2026/07/071234', lead_sponsor:'Nova Therapeutics', phase:'PHASE1', overall_status:'NOT_YET_RECRUITING', conditions:'Diabetes', enrollment_count:60, countries:'India', last_update_posted:'2026-06-20'},
+  {nct_id:'ChiCTR2600089213', lead_sponsor:'Helix Oncology', phase:'PHASE3', overall_status:'RECRUITING', conditions:'Breast Cancer', enrollment_count:500, countries:'China, Japan', last_update_posted:'2026-07-10'},
+  {nct_id:'NCT05987421', lead_sponsor:'Meridian Pharma', phase:'PHASE2', overall_status:'COMPLETED', conditions:'Rheumatoid Arthritis', enrollment_count:96, countries:'United States, Canada', last_update_posted:'2026-05-15'},
+  {nct_id:'EUCT2026-501', lead_sponsor:'Solvana Bio', phase:'PHASE2', overall_status:'TERMINATED', conditions:'Psoriasis', enrollment_count:180, countries:'Germany, France, Italy', last_update_posted:'2026-04-02'}
+];
+
+function getDataset(){
+  return (window.TRIALS_DATA && window.TRIALS_DATA.length) ? window.TRIALS_DATA : MOCK_DATA;
+}
+
+function populateCountryFilter(dataset){
+  const countrySet = new Set();
+  dataset.forEach(t => (t.countries || '').split(',').map(c => c.trim()).filter(Boolean).forEach(c => countrySet.add(c)));
+  const select = document.getElementById('filterCountry');
+  const current = select.value;
+  select.innerHTML = '<option value="">Country: all</option>' +
+    [...countrySet].sort().map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  select.value = current;
+}
+
+function populateRegistryFilter(dataset){
+  const regSet = new Set();
+  dataset.forEach(t => {
+    const r = detectRegistry(t.nct_id);
+    regSet.add(r.key || r.label);
+  });
+  const select = document.getElementById('filterRegistry');
+  const current = select.value;
+  const labels = {ctgov:'CT.gov', euctr:'EU CTR', ctis:'CTIS', isrctn:'ISRCTN',
+                  anzctr:'ANZCTR', ctri:'CTRI', chictr:'ChiCTR', ictrp:'WHO ICTRP'};
+  select.innerHTML = '<option value="">Registry: all</option>' +
+    [...regSet].sort().map(k => `<option value="${escapeHtml(k)}">${escapeHtml(labels[k]||k)}</option>`).join('');
+  select.value = current;
+}
+
+const STATUS_CLASS = {
+  RECRUITING:'status-recruiting', NOT_YET_RECRUITING:'status-active',
+  ACTIVE_NOT_RECRUITING:'status-active', COMPLETED:'status-completed',
+  TERMINATED:'status-terminated', WITHDRAWN:'status-terminated', SUSPENDED:'status-terminated'
+};
+const STATUS_LABEL = {
+  RECRUITING:'Recruiting', NOT_YET_RECRUITING:'Not yet recruiting',
+  ACTIVE_NOT_RECRUITING:'Active', COMPLETED:'Completed',
+  TERMINATED:'Terminated', WITHDRAWN:'Withdrawn', SUSPENDED:'Suspended'
+};
+const PHASE_LABEL = {
+  NA:'Not specified', 'N/A':'Not specified', EARLY_PHASE1:'Early Phase 1',
+  PHASE1:'Phase 1', PHASE2:'Phase 2', PHASE3:'Phase 3', PHASE4:'Phase 4'
+};
+
+function formatPhase(raw){
+  if (!raw) return 'Not specified';
+  return raw.split(',').map(p => PHASE_LABEL[p.trim()] || p.trim()).join(', ');
+}
+
+// Every value below comes from third-party trial-registry data we don't control
+// (sponsor names, phases, statuses, etc.). Anything interpolated into innerHTML
+// must go through this so a stray "<" or "&" in a field is always rendered as
+// text, never parsed as markup.
+function escapeHtml(value){
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function primaryPhaseBucket(raw){
+  // For the chart: use just the first listed phase, collapsing NA/N/A together
+  if (!raw) return 'Not specified';
+  const first = raw.split(',')[0].trim();
+  return PHASE_LABEL[first] || first;
+}
+
+function explorerRowHtml(t){
+  const statusClass = STATUS_CLASS[t.overall_status] || 'status-active';
+  const statusLabel = STATUS_LABEL[t.overall_status] || t.overall_status || 'Unknown';
+  return `<tr>
+    <td><span class="trial-id">${escapeHtml(t.nct_id)}</span><div class="reg-badges"><span class="reg-badge reg-ct">CT.GOV</span></div></td>
+    <td>${escapeHtml(t.lead_sponsor) || '—'}</td>
+    <td>${escapeHtml(formatPhase(t.phase))}</td>
+    <td>${escapeHtml(t.enrollment_count) || '—'}</td>
+    <td>${escapeHtml(t.countries) || '—'}</td>
+    <td><span class="status-pill ${statusClass}">${escapeHtml(statusLabel)}</span></td>
+  </tr>`;
+}
+
+function recentRowHtml(t){
+  const statusClass = STATUS_CLASS[t.overall_status] || 'status-active';
+  const statusLabel = STATUS_LABEL[t.overall_status] || t.overall_status || 'Unknown';
+  return `<tr>
+    <td><span class="trial-id">${escapeHtml(t.nct_id)}</span><div class="reg-badges"><span class="reg-badge reg-ct">CT.GOV</span></div></td>
+    <td>${escapeHtml(t.lead_sponsor) || '—'}</td>
+    <td>${escapeHtml(formatPhase(t.phase))}</td>
+    <td><span class="status-pill ${statusClass}">${escapeHtml(statusLabel)}</span></td>
+  </tr>`;
+}
+
+// Holds the last filtered result set so exportFilteredTrials() can read it
+let _lastFiltered = [];
+
+function applyExplorerFilters(){
+  const dataset = getDataset();
+  const searchTerm = (document.getElementById('explorerSearch').value || '').toLowerCase().trim();
+  const phase = document.getElementById('filterPhase').value;
+  const status = document.getElementById('filterStatus').value;
+  const country = document.getElementById('filterCountry').value;
+  const registry = document.getElementById('filterRegistry').value;
+
+  const filtered = dataset.filter(t => {
+    if (phase && !((t.phase || '').split(',').map(p => p.trim()).includes(phase))) return false;
+    if (status && t.overall_status !== status) return false;
+    if (country && !(t.countries || '').includes(country)) return false;
+    if (registry) {
+      const r = detectRegistry(t.nct_id);
+      if ((r.key || r.label) !== registry) return false;
+    }
+    if (searchTerm) {
+      const haystack = `${t.lead_sponsor || ''} ${t.nct_id || ''} ${t.conditions || ''}`.toLowerCase();
+      if (!haystack.includes(searchTerm)) return false;
+    }
+    return true;
+  });
+
+  // Store for export
+  _lastFiltered = filtered;
+  const exportBtn = document.getElementById('exportBtn');
+  if (exportBtn) exportBtn.textContent = `⬇ Export Excel (${filtered.length.toLocaleString()})`;
+
+  const PAGE_SIZE = 100;
+  document.getElementById('explorerRows').innerHTML = filtered.length
+    ? filtered.slice(0, PAGE_SIZE).map(explorerRowHtml).join('')
+    : '<tr><td colspan="6" style="text-align:center; color:var(--text-2); padding:24px;">No trials match these filters</td></tr>';
+  const moreBtn = document.getElementById('explorerMoreBtn');
+  if (filtered.length > PAGE_SIZE) {
+    let _offset = PAGE_SIZE;
+    const _updateMoreBtn = () => {
+      const remaining = filtered.length - _offset;
+      if (remaining > 0) {
+        moreBtn.style.display = 'block';
+        moreBtn.textContent = `Show more (${remaining} remaining)`;
+        moreBtn.onclick = () => {
+          document.getElementById('explorerRows').innerHTML +=
+            filtered.slice(_offset, _offset + PAGE_SIZE).map(explorerRowHtml).join('');
+          _offset += PAGE_SIZE;
+          _updateMoreBtn();
+        };
+      } else {
+        moreBtn.style.display = 'none';
+      }
+    };
+    _updateMoreBtn();
+  } else {
+    moreBtn.style.display = 'none';
+  }
+  const regSources = new Set(dataset.map(t => detectRegistry(t.nct_id).label));
+  const sourceLabel = regSources.size > 1 ? `${regSources.size} registries` : [...regSources][0] || 'registry';
+  document.getElementById('explorerSubtitle').textContent =
+    `${filtered.length.toLocaleString()} of ${dataset.length.toLocaleString()} trials across ${sourceLabel}`;
+}
+
+function exportFilteredTrials(){
+  const rows = _lastFiltered.length ? _lastFiltered : getDataset();
+  if(!rows.length){ alert('No trials to export.'); return; }
+
+  const cols = [
+    { h:'Trial ID',        v: t => t.nct_id || '' },
+    { h:'Title',           v: t => t.brief_title || '' },
+    { h:'Sponsor',         v: t => t.lead_sponsor || '' },
+    { h:'Phase',           v: t => formatPhase(t.phase) },
+    { h:'Status',          v: t => STATUS_LABEL[t.overall_status] || t.overall_status || '' },
+    { h:'Enrollment',      v: t => t.enrollment_count != null ? t.enrollment_count : '' },
+    { h:'Countries',       v: t => t.countries || '' },
+    { h:'Conditions',      v: t => t.conditions || '' },
+    { h:'Start Date',      v: t => t.start_date || '' },
+    { h:'Completion Date', v: t => t.primary_completion_date || '' },
+    { h:'Registry',        v: t => detectRegistry(t.nct_id).label },
+    { h:'URL',             v: t => trialUrl(t.nct_id) },
+  ];
+
+  const esc = val => {
+    const s = String(val).replace(/"/g, '""');
+    return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s}"` : s;
+  };
+
+  const lines = [cols.map(c => c.h).join(',')];
+  rows.forEach(t => lines.push(cols.map(c => esc(c.v(t))).join(',')));
+
+  const today = new Date().toISOString().slice(0,10);
+  const filename = `trialscope_export_${today}_${rows.length}-trials.csv`;
+
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function renderRealData(){
+  const data = getDataset();
+  const usingRealData = !!(window.TRIALS_DATA && window.TRIALS_DATA.length);
+
+  const banner = document.getElementById('dataSourceBanner');
+  const bannerText = document.getElementById('dataSourceBannerText');
+  const footer = document.getElementById('sidebarFooter');
+
+  if (usingRealData) {
+    banner.style.display = 'none';
+    const latest = data.reduce((max, t) => {
+      const f = t.fetched_at || '';
+      return f > max ? f : max;
+    }, '');
+    const latestLabel = latest ? new Date(latest).toLocaleString() : 'unknown time';
+    footer.innerHTML = `Data source: ClinicalTrials.gov<br>Last export: ${escapeHtml(latestLabel)}`;
+  } else {
+    banner.style.display = 'flex';
+    bannerText.textContent = "Showing sample data — trials_data.js wasn't found (or was empty/invalid). Run trialscope_pipeline.py and place trials_data.js next to this file to see real trials.";
+    footer.innerHTML = 'Data source: sample data only<br>(trials_data.js not loaded)';
+  }
+
+  // KPIs — prefer pre-computed METRICS_DATA; fall back to trial rows
+  applyMetrics(data);
+  if (!usingRealData) {
+    document.getElementById('kpiTrackedNote').textContent = 'sample data';
+  }
+
+  // Explorer table + filter dropdown options
+  populateCountryFilter(data);
+  populateRegistryFilter(data);
+  applyExplorerFilters();
+
+  // Competitor tracking
+  populateCompetitorSponsors();
+  renderCompetitorView();
+
+  // Alerts screen
+  renderAlerts();
+
+  // Overview recent registrations -- most recently updated, top 3
+  const recent = [...data].sort((a,b) => (b.last_update_posted||'').localeCompare(a.last_update_posted||'')).slice(0,3);
+  document.getElementById('recentRows').innerHTML = recent.map(recentRowHtml).join('');
+
+  // Phase chart -- bucket by primary phase only, in a sensible clinical order
+  const order = ['Early Phase 1','Phase 1','Phase 2','Phase 3','Phase 4','Not specified'];
+  const phaseCounts = {};
+  data.forEach(t => {
+    const bucket = primaryPhaseBucket(t.phase);
+    phaseCounts[bucket] = (phaseCounts[bucket] || 0) + 1;
+  });
+  const labels = order.filter(p => phaseCounts[p]);
+  Object.keys(phaseCounts).forEach(p => { if (!labels.includes(p)) labels.push(p); }); // catch anything unexpected
+  phaseChartInstance.data.labels = labels;
+  phaseChartInstance.data.datasets[0].data = labels.map(l => phaseCounts[l]);
+  phaseChartInstance.update();
+}
+
+['explorerSearch'].forEach(id => document.getElementById(id).addEventListener('input', applyExplorerFilters));
+['filterPhase','filterStatus','filterCountry','filterRegistry'].forEach(id => document.getElementById(id).addEventListener('change', applyExplorerFilters));
+
+const phaseChartInstance = new Chart(document.getElementById('phaseChart'), {
+  type:'bar',
+  data:{ labels:['Phase 1','Phase 2','Phase 3','Phase 4'],
+    datasets:[{ data:[312, 486, 398, 88], backgroundColor:'#1F6F5C', borderRadius:4, barThickness:34 }] },
+  options: baseOpts
+});
+
+// ─── Registry detection helpers (must be before renderRealData) ──────────
+// REGISTRY_META is a const — not hoisted. It must appear BEFORE the
+// renderRealData() call below, because applyMetrics() and
+// populateRegistryFilter() both call detectRegistry() which reads this array.
+
+const REGISTRY_META = [
+  { prefix: /^NCT\d/i,    label:'CT.GOV', css:'reg-ct',
+    url: id=>`https://clinicaltrials.gov/study/${id}` },
+  { prefix: /^EUCTR/i,    label:'EU CTR', css:'reg-euctr',
+    url: id=>`https://www.clinicaltrialsregister.eu/ctr-search/trial/${id.replace(/^EUCTR/i,'').replace(/-[A-Z]{2}$/,'')}/` },
+  { prefix: /^CTIS-/i,    label:'CTIS',   css:'reg-ctis',
+    url: id=>`https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en&query=${encodeURIComponent(id)}` },
+  { prefix: /^ISRCTN\d/i, label:'ISRCTN', css:'reg-ictrp',
+    url: id=>`https://www.isrctn.com/${id}` },
+  { prefix: /^ACTRN\d/i,  label:'ANZCTR', css:'reg-ictrp',
+    url: id=>`https://www.anzctr.org.au/Trial/Registration/TrialReview.aspx?ACTRN=${id.replace(/^ACTRN/i,'')}` },
+  { prefix: /^CTRI\//i,   label:'CTRI',   css:'reg-ctri',
+    url: id=>`http://ctri.nic.in/Clinicaltrials/pmaindet2.php?trialid=${encodeURIComponent(id)}` },
+  { prefix: /^ChiCTR\d/i, label:'ChiCTR', css:'reg-chictr',
+    url: id=>`https://www.chictr.org.cn/showprojen.aspx?proj=${id.replace(/^ChiCTR/i,'')}` },
+];
+
+function detectRegistry(id){
+  if(!id) return REGISTRY_META[0];
+  return REGISTRY_META.find(r=>r.prefix.test(id)) || REGISTRY_META[0];
+}
+function registryBadgeHtml(id){
+  const r=detectRegistry(id);
+  return `<div class="reg-badges"><span class="reg-badge ${r.css}">${r.label}</span></div>`;
+}
+function trialUrl(id){
+  return detectRegistry(id).url(id);
+}
+
+// NOTE: competitorChartInstance and the sponsor "change" listener must exist
+// BEFORE renderRealData() runs below -- renderRealData() calls
+// renderCompetitorView() immediately, which reads competitorChartInstance.
+// Previously that const was declared further down the file, so this first
+// call threw an uncaught ReferenceError (temporal dead zone) partway through
+// renderCompetitorView() -- right before it reached the code that fills in
+// the table rows. Because the error was uncaught, it also aborted the rest
+// of the top-level script, so the change listener below never got attached
+// at all -- which is why switching sponsors did nothing either.
+const competitorChartInstance = new Chart(document.getElementById('competitorChart'), {
+  type:'bar',
+  data:{ labels:[], datasets:[{ data:[], backgroundColor:'#2E5C8A', borderRadius:4, barThickness:30 }] },
+  options: baseOpts
+});
+document.getElementById('competitorSponsor').addEventListener('change', renderCompetitorView);
+
+renderRealData();
+
+function renderCompetitorView(){
+  const data = getDataset();
+  const sponsor = document.getElementById('competitorSponsor').value;
+  const sponsorTrials = data.filter(t => t.lead_sponsor === sponsor);
+
+  document.getElementById('competitorChartTitle').textContent = sponsor ? `${sponsor} — trials by year` : 'Trials by year';
+
+  // Group by year of first posting/start date
+  const yearCounts = {};
+  sponsorTrials.forEach(t => {
+    const dateStr = t.study_first_posted || t.start_date || '';
+    const year = dateStr.slice(0, 4);
+    if (year) yearCounts[year] = (yearCounts[year] || 0) + 1;
+  });
+  const years = Object.keys(yearCounts).sort();
+  competitorChartInstance.data.labels = years;
+  competitorChartInstance.data.datasets[0].data = years.map(y => yearCounts[y]);
+  competitorChartInstance.update();
+
+  document.getElementById('competitorRows').innerHTML = sponsorTrials.length
+    ? sponsorTrials.map(t => {
+        const statusClass = STATUS_CLASS[t.overall_status] || 'status-active';
+        const statusLabel = STATUS_LABEL[t.overall_status] || t.overall_status || 'Unknown';
+        return `<tr>
+          <td><span class="trial-id">${escapeHtml(t.nct_id)}</span></td>
+          <td>${escapeHtml(formatPhase(t.phase))}</td>
+          <td>${escapeHtml(t.enrollment_count) || '—'}</td>
+          <td><span class="status-pill ${statusClass}">${escapeHtml(statusLabel)}</span></td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="4" style="text-align:center; color:var(--text-2); padding:16px;">No trials found for this sponsor</td></tr>';
+}
+
+const EVENT_DOT = {
+  NEW_MATCH:         'new',
+  STATUS_CHANGE:     'status',
+  ENROLLMENT_CHANGE: 'status',
+  DATE_CHANGE:       'status',
+  GENERAL_UPDATE:    'status',
+};
+const EVENT_LABEL = {
+  NEW_MATCH:         'New match',
+  STATUS_CHANGE:     'Status change',
+  ENROLLMENT_CHANGE: 'Enrollment update',
+  DATE_CHANGE:       'Date change',
+  GENERAL_UPDATE:    'Updated',
+};
+
+function renderAlerts(){
+  const container = document.getElementById('alertsList');
+  const alerts = (window.ALERTS_DATA && window.ALERTS_DATA.length) ? window.ALERTS_DATA : null;
+
+  if (!alerts) {
+    // No real alert data yet — show placeholder
+    container.innerHTML = `
+      <div class="alert-item">
+        <div class="alert-dot new"></div>
+        <div><div class="alert-title">Run the pipeline to generate real alerts</div>
+        <div class="alert-meta">python trialscope_pipeline.py --condition oncology</div></div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = alerts.slice(0, 10).map(a => {
+    const dotClass = EVENT_DOT[a.event_type] || 'new';
+    const label    = EVENT_LABEL[a.event_type] || a.event_type;
+    const when     = a.triggered_at ? new Date(a.triggered_at).toLocaleString() : '';
+    const search   = a.search_name ? escapeHtml(a.search_name) + ' · ' : '';
+    const readClass = a.is_read ? ' read' : '';
+    return `<div class="alert-item${readClass}" onclick="this.classList.toggle('read')">
+      <div class="alert-dot ${dotClass}"></div>
+      <div>
+        <div class="alert-title">${escapeHtml(label)} — ${escapeHtml(a.event_detail || a.nct_id)}</div>
+        <div class="alert-meta">${search}${escapeHtml(when)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function populateCompetitorSponsors(){
+  // Prefer pre-computed SPONSORS_DATA (from pipeline); fall back to computing from trial rows.
+  const select = document.getElementById('competitorSponsor');
+  const previous = select.value;
+  select.replaceChildren();
+
+  if (window.SPONSORS_DATA && window.SPONSORS_DATA.length) {
+    window.SPONSORS_DATA.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.name;
+      opt.textContent = `${s.name} (${s.total_trials} trial${s.total_trials > 1 ? 's' : ''})`;
+      select.appendChild(opt);
+    });
+  } else {
+    const data = getDataset();
+    const counts = {};
+    data.forEach(t => { if (t.lead_sponsor) counts[t.lead_sponsor] = (counts[t.lead_sponsor] || 0) + 1; });
+    const sponsors = Object.keys(counts).sort((a,b) => counts[b] - counts[a]);
+    sponsors.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = `${s} (${counts[s]} trial${counts[s] > 1 ? 's' : ''})`;
+      select.appendChild(opt);
+    });
+  }
+
+  const opts = [...select.options].map(o => o.value);
+  select.value = opts.includes(previous) ? previous : (opts[0] || '');
+  // Guard: if value is still empty after populating, force-select the first option
+  if (!select.value && select.options.length > 0) {
+    select.value = select.options[0].value;
+  }
+}
+
+// ─── Watchlist (persisted in localStorage) ───────────────────────────────
+
+function getWatchlist(){ try{ return JSON.parse(localStorage.getItem('ts_watchlist')||'[]'); }catch(e){ return []; } }
+function saveWatchlist(list){ localStorage.setItem('ts_watchlist', JSON.stringify(list)); }
+function isWatched(nctId){ return getWatchlist().includes(nctId); }
+function addToWatchlist(nctId){ const l=getWatchlist(); if(!l.includes(nctId)){l.push(nctId); saveWatchlist(l);} }
+function removeFromWatchlist(nctId){ saveWatchlist(getWatchlist().filter(id=>id!==nctId)); }
+
+function renderWatchlist(){
+  const list  = getWatchlist();
+  const data  = getDataset();
+  const tbody = document.getElementById('watchlistRows');
+  const empty = document.getElementById('watchlistEmpty');
+  document.getElementById('watchlistSub').textContent = `${list.length} trial${list.length!==1?'s':''} tracked`;
+
+  if(!list.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+
+  const watched = list.map(id=>data.find(t=>t.nct_id===id)).filter(Boolean);
+  tbody.innerHTML = watched.map(t=>{
+    const sc  = STATUS_CLASS[t.overall_status]||'status-active';
+    const sl  = STATUS_LABEL[t.overall_status]||t.overall_status||'Unknown';
+    return `<tr>
+      <td>
+        <div class="trial-id-wrap">
+          <div class="watch-dot"></div>
+          <span class="trial-id" style="cursor:pointer" onclick="openDetail('${escapeHtml(t.nct_id)}')">${escapeHtml(t.nct_id)}</span>
+        </div>
+        ${registryBadgeHtml(t.nct_id)}
+      </td>
+      <td>${escapeHtml(t.lead_sponsor||'—')}</td>
+      <td>${escapeHtml(formatPhase(t.phase))}</td>
+      <td><span class="status-pill ${sc}">${escapeHtml(sl)}</span></td>
+      <td>${escapeHtml(t.completion_date||t.primary_completion_date||'—')}</td>
+      <td><button class="btn-secondary" style="padding:4px 10px;font-size:11.5px;" onclick="removeFromWatchlist('${escapeHtml(t.nct_id)}');renderWatchlist();">Remove</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── Indication landscape ─────────────────────────────────────────────────
+
+function renderIndicationLandscape(){
+  const indications = window.INDICATIONS_DATA;
+  const tbody = document.getElementById('indicationRows');
+
+  if(!indications || !indications.length){
+    // Fall back: compute from TRIALS_DATA
+    const data = getDataset();
+    const counts={};
+    data.forEach(t=>{
+      (t.conditions||'').split(',').map(c=>c.trim()).filter(Boolean).forEach(c=>{
+        if(!counts[c]) counts[c]={total:0,active:0,phase1:0,phase2:0,phase3:0,sponsors:{}};
+        counts[c].total++;
+        if(['RECRUITING','NOT_YET_RECRUITING','ACTIVE_NOT_RECRUITING'].includes(t.overall_status)) counts[c].active++;
+        const ph=t.phase||'';
+        if(ph.includes('PHASE1')) counts[c].phase1++;
+        if(ph.includes('PHASE2')) counts[c].phase2++;
+        if(ph.includes('PHASE3')) counts[c].phase3++;
+        if(t.lead_sponsor) counts[c].sponsors[t.lead_sponsor]=(counts[c].sponsors[t.lead_sponsor]||0)+1;
+      });
+    });
+    const all=Object.entries(counts).sort((a,b)=>b[1].total-a[1].total).slice(0,100);
+    // Apply search filter in fallback path too
+    const q=(document.getElementById('indicationSearch').value||'').toLowerCase().trim();
+    const sorted=q?all.filter(([cond])=>cond.toLowerCase().includes(q)):all;
+    document.getElementById('kpiCondTotal').textContent=all.length;
+    document.getElementById('kpiCondActive').textContent=all.filter(([,d])=>d.active>0).length;
+    document.getElementById('kpiCondTop').textContent=all[0]?`${all[0][0]} (${all[0][1].total})`:'—';
+    document.getElementById('indicationSub').textContent=`${all.length} conditions from ${data.length.toLocaleString()} trials · showing ${sorted.length}`;
+    tbody.innerHTML=sorted.map(([cond,d])=>{
+      const topS=Object.entries(d.sponsors).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([s])=>escapeHtml(s)).join(', ');
+      return `<tr class="indication-row" onclick="filterExplorerByCondition('${escapeHtml(cond)}')">
+        <td style="font-weight:500;">${escapeHtml(cond)}</td>
+        <td style="font-weight:600;">${d.total}</td>
+        <td>${d.active}</td>
+        <td>${d.phase1||''}</td><td>${d.phase2||''}</td><td>${d.phase3||''}</td>
+        <td style="font-size:12px;color:var(--text-2);">${topS||'—'}</td>
+        <td>—</td>
+      </tr>`;
+    }).join('');
+    return;
+  }
+
+  // Use pre-computed INDICATIONS_DATA from pipeline
+  const visible = _filterIndications(indications);
+  document.getElementById('kpiCondTotal').textContent=indications.length.toLocaleString();
+  document.getElementById('kpiCondActive').textContent=indications.filter(i=>i.active_trials>0).length.toLocaleString();
+  document.getElementById('kpiCondTop').textContent=indications[0]?`${indications[0].condition} (${indications[0].total_trials})`:'—';
+  document.getElementById('indicationSub').textContent=`${indications.length} conditions · showing ${visible.length}`;
+
+  tbody.innerHTML=visible.map(i=>`<tr class="indication-row" onclick="filterExplorerByCondition('${escapeHtml(i.condition)}')">
+    <td style="font-weight:500;">${escapeHtml(i.condition)}</td>
+    <td style="font-weight:600;">${i.total_trials}</td>
+    <td>${i.active_trials}</td>
+    <td>${i.phase1_count||''}</td><td>${i.phase2_count||''}</td><td>${i.phase3_count||''}</td>
+    <td style="font-size:12px;color:var(--text-2);">${escapeHtml(i.top_sponsors||'—')}</td>
+    <td style="font-size:12px;">${(i.countries_active||'').split(',').length>1?(i.countries_active||'').split(',').length+' countries':escapeHtml((i.countries_active||'').trim()||'—')}</td>
+  </tr>`).join('');
+}
+
+function _filterIndications(list){
+  const q=(document.getElementById('indicationSearch').value||'').toLowerCase().trim();
+  return q ? list.filter(i=>(i.condition||'').toLowerCase().includes(q)) : list;
+}
+
+function filterExplorerByCondition(cond){
+  showScreen('explorer');
+  const searchEl=document.getElementById('explorerSearch');
+  searchEl.value=cond;
+  applyExplorerFilters();
+}
+
+document.getElementById('indicationSearch').addEventListener('input', renderIndicationLandscape);
+
+// ─── Trial detail panel ───────────────────────────────────────────────────
+
+let _detailNctId = null;
+
+function openDetail(nctId){
+  const data=getDataset();
+  const t=data.find(d=>d.nct_id===nctId);
+  if(!t) return;
+  _detailNctId=nctId;
+
+  document.getElementById('dpNctId').textContent=nctId;
+  document.getElementById('dpTitle').textContent=t.brief_title||t.official_title||nctId;
+  const _reg=detectRegistry(nctId);
+  const _link=document.getElementById('dpCtGovLink');
+  _link.href=trialUrl(nctId);
+  _link.querySelector('button').textContent=`View on ${_reg.label} ↗`;
+
+  document.getElementById('dpSponsor').textContent=(t.sponsor_canonical||t.lead_sponsor||'—') + (t.sponsor_type?` · ${t.sponsor_type}`:'');
+  document.getElementById('dpPhase').textContent=formatPhase(t.phase)||'Not specified';
+  document.getElementById('dpStatus').innerHTML=`<span class="status-pill ${STATUS_CLASS[t.overall_status]||'status-active'}">${escapeHtml(STATUS_LABEL[t.overall_status]||t.overall_status||'Unknown')}</span>`;
+  document.getElementById('dpType').textContent=t.study_type||'—';
+  document.getElementById('dpPurpose').textContent=t.primary_purpose||'—';
+  document.getElementById('dpModel').textContent=t.intervention_model||'—';
+
+  document.getElementById('dpEnrollment').textContent=t.enrollment_count?(t.enrollment_count.toLocaleString()+' (target)'):'—';
+  document.getElementById('dpSites').textContent=t.site_count||'—';
+  document.getElementById('dpCountries').textContent=t.countries||'—';
+  document.getElementById('dpAge').textContent=((t.minimum_age||'?')+' – '+(t.maximum_age||'?'));
+  document.getElementById('dpSex').textContent=t.sex||'—';
+  document.getElementById('dpHV').textContent=t.healthy_volunteers||'—';
+
+  document.getElementById('dpPosted').textContent=t.study_first_posted||'—';
+  document.getElementById('dpStart').textContent=t.start_date||'—';
+  document.getElementById('dpPrimaryComp').textContent=t.primary_completion_date||'—';
+  document.getElementById('dpCompletion').textContent=t.completion_date||'—';
+
+  const sumEl=document.getElementById('dpSummary');
+  sumEl.textContent=t.brief_summary||'No summary available.';
+  sumEl.classList.add('collapsed');
+  document.getElementById('dpSummaryExpand').textContent='Show more ▾';
+
+  const eligEl=document.getElementById('dpEligibility');
+  eligEl.textContent=t.eligibility_criteria||'Not available in current export.';
+  eligEl.classList.add('collapsed');
+  document.getElementById('dpEligExpand').textContent='Show more ▾';
+
+  // Interventions
+  let interventions=[];
+  try{ interventions=JSON.parse(t.interventions_json||'[]'); }catch(e){}
+  document.getElementById('dpInterventions').innerHTML=interventions.length
+    ?interventions.map(i=>`<div style="margin-bottom:6px;"><strong>${escapeHtml(i.type||'')}:</strong> ${escapeHtml(i.name||'')} — <span style="color:var(--text-2);font-size:12px;">${escapeHtml((i.description||'').slice(0,120))}${(i.description||'').length>120?'…':''}</span></div>`).join('')
+    :'<span style="color:var(--text-2);">No interventions data.</span>';
+
+  // Primary endpoints
+  let outcomes=[];
+  try{ outcomes=JSON.parse(t.outcomes_json||'[]'); }catch(e){}
+  const primary=outcomes.filter((_,idx)=>idx<3);
+  document.getElementById('dpEndpoints').innerHTML=primary.length
+    ?primary.map(o=>`<div style="margin-bottom:8px;">• <strong>${escapeHtml(o.measure||'')}</strong>${o.timeFrame?` <span style="color:var(--text-2);font-size:12px;">[${escapeHtml(o.timeFrame)}]</span>`:''}</div>`).join('')
+    :'<span style="color:var(--text-2);">No outcomes data.</span>';
+
+  // Watch button state
+  const watchBtn=document.getElementById('dpWatchBtn');
+  watchBtn.textContent=isWatched(nctId)?'★ Remove from watchlist':'☆ Add to watchlist';
+  watchBtn.className=isWatched(nctId)?'btn-danger':'btn-primary';
+
+  document.getElementById('detailOverlay').classList.add('open');
+  document.getElementById('detailPanel').classList.add('open');
+}
+
+function closeDetail(){
+  document.getElementById('detailOverlay').classList.remove('open');
+  document.getElementById('detailPanel').classList.remove('open');
+  _detailNctId=null;
+}
+
+function toggleWatchlist(){
+  if(!_detailNctId) return;
+  if(isWatched(_detailNctId)){ removeFromWatchlist(_detailNctId); }
+  else{ addToWatchlist(_detailNctId); }
+  const watchBtn=document.getElementById('dpWatchBtn');
+  watchBtn.textContent=isWatched(_detailNctId)?'★ Remove from watchlist':'☆ Add to watchlist';
+  watchBtn.className=isWatched(_detailNctId)?'btn-danger':'btn-primary';
+  if(document.getElementById('watchlist').classList.contains('active')) renderWatchlist();
+}
+
+function toggleExpand(contentId, btnId){
+  const el=document.getElementById(contentId);
+  const btn=document.getElementById(btnId);
+  const collapsed=el.classList.toggle('collapsed');
+  btn.textContent=collapsed?'Show more ▾':'Show less ▴';
+}
+
+// ─── Make trial IDs clickable everywhere ──────────────────────────────────
+
+function clickableTrialId(nctId, isWatching){
+  const url=trialUrl(nctId);
+  return `<div class="trial-id-wrap">${isWatching?'<div class="watch-dot"></div>':''}<a class="trial-id" style="cursor:pointer;text-decoration:underline dotted;" href="${url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(nctId)}</a></div>`;
+}
+
+// ─── Override row builders to use clickable IDs + registry badges ─────────
+
+function explorerRowHtml(t){
+  const statusClass=STATUS_CLASS[t.overall_status]||'status-active';
+  const statusLabel=STATUS_LABEL[t.overall_status]||t.overall_status||'Unknown';
+  const watched=isWatched(t.nct_id);
+  return `<tr>
+    <td>${clickableTrialId(t.nct_id,watched)}${registryBadgeHtml(t.nct_id)}</td>
+    <td>${escapeHtml(t.lead_sponsor)||'—'}</td>
+    <td>${escapeHtml(formatPhase(t.phase))}</td>
+    <td>${escapeHtml(String(t.enrollment_count??'—'))}</td>
+    <td>${escapeHtml(t.countries||'—')}</td>
+    <td><span class="status-pill ${statusClass}">${escapeHtml(statusLabel)}</span></td>
+  </tr>`;
+}
+
+function recentRowHtml(t){
+  const statusClass=STATUS_CLASS[t.overall_status]||'status-active';
+  const statusLabel=STATUS_LABEL[t.overall_status]||t.overall_status||'Unknown';
+  return `<tr>
+    <td>${clickableTrialId(t.nct_id,false)}${registryBadgeHtml(t.nct_id)}</td>
+    <td>${escapeHtml(t.lead_sponsor)||'—'}</td>
+    <td>${escapeHtml(formatPhase(t.phase))}</td>
+    <td><span class="status-pill ${statusClass}">${escapeHtml(statusLabel)}</span></td>
+  </tr>`;
+}
+
+// ─── Metrics KPIs from METRICS_DATA ──────────────────────────────────────
+
+function applyMetrics(data){
+  const _regSources=new Set(data.map(t=>detectRegistry(t.nct_id).label));
+  const _sourceNote=_regSources.size>1?`from ${_regSources.size} registries`:'from ClinicalTrials.gov';
+  const m=window.METRICS_DATA;
+  if(m && m.total_trials!=null){
+    document.getElementById('kpiTracked').textContent=(m.total_trials||0).toLocaleString();
+    document.getElementById('kpiTrackedNote').textContent=_sourceNote;
+    document.getElementById('kpiActive').textContent=(m.active_trials||0).toLocaleString();
+    document.getElementById('kpiNew').textContent=(m.new_trials_30d||0).toLocaleString();
+    document.getElementById('kpiAtRisk').textContent=(m.trials_at_risk||0).toLocaleString();
+    document.getElementById('kpiTimeToStart').textContent=m.avg_time_to_start_days!=null?`${Number(m.avg_time_to_start_days).toFixed(1)}d`:'—';
+    document.getElementById('kpiCompletionRate').textContent=m.completion_rate!=null?`${(m.completion_rate*100).toFixed(0)}%`:'—';
+    document.getElementById('kpiAmendFreq').textContent=m.amendment_frequency!=null?m.amendment_frequency.toFixed(2):'—';
+    const sponsors=new Set(data.map(t=>t.lead_sponsor).filter(Boolean));
+    document.getElementById('kpiSponsors').textContent=sponsors.size.toLocaleString();
+  } else {
+    // No METRICS_DATA — fall back to computing from trial rows
+    document.getElementById('kpiTracked').textContent=data.length.toLocaleString();
+    document.getElementById('kpiTrackedNote').textContent=_sourceNote;
+    const activeSet=new Set(['RECRUITING','NOT_YET_RECRUITING','ACTIVE_NOT_RECRUITING','ENROLLING_BY_INVITATION']);
+    document.getElementById('kpiActive').textContent=data.filter(t=>activeSet.has(t.overall_status)).length.toLocaleString();
+    const cutoff=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
+    document.getElementById('kpiNew').textContent=data.filter(t=>(t.study_first_posted||'')>=cutoff).length.toLocaleString();
+    const today=new Date().toISOString().slice(0,10);
+    document.getElementById('kpiAtRisk').textContent=data.filter(t=>activeSet.has(t.overall_status)&&t.completion_date&&t.completion_date<today).length.toLocaleString();
+    document.getElementById('kpiTimeToStart').textContent='—';
+    const completed=data.filter(t=>t.overall_status==='COMPLETED').length;
+    const terminated=data.filter(t=>['TERMINATED','WITHDRAWN'].includes(t.overall_status)).length;
+    const closed=completed+terminated;
+    document.getElementById('kpiCompletionRate').textContent=closed>0?`${(completed/closed*100).toFixed(0)}%`:'—';
+    document.getElementById('kpiAmendFreq').textContent='—';
+    const sponsors=new Set(data.map(t=>t.lead_sponsor).filter(Boolean));
+    document.getElementById('kpiSponsors').textContent=sponsors.size.toLocaleString();
+  }
+}
+
+</script>
+</body>
+</html>
